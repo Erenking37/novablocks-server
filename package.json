@@ -1,64 +1,12 @@
-let worlds=JSON.parse(localStorage.getItem("nb_worlds")||"{}");
-let currentWorld=null;
-let tool="block";
-
-/* WORLDS */
-function loadWorlds(){
-
-worldList.innerHTML="";
-
-for(let w in worlds){
-worldList.innerHTML+=`
-<button onclick="openWorld('${w}')">${w}</button>
-`;
+{
+  "name": "novablocks",
+  "version": "3.5.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
+  }
 }
-
-}
-
-function openWorld(name){
-
-currentWorld=name;
-
-menu.style.display="none";
-details.style.display="flex";
-
-worldName.innerText=name;
-worldDesc.innerText=worlds[name]?.desc||"";
-thumbImg.src=worlds[name]?.thumb||"";
-
-}
-
-/* EDIT SAFE */
-function toggleEdit(){
-
-editMode=!editMode;
-
-toolbar.style.display=editMode?"flex":"none";
-
-alert(editMode?"Edit ON":"Edit OFF");
-
-}
-
-/* SAFE PLACE */
-document.addEventListener("click",()=>{
-
-if(!editMode || !gameStarted) return;
-if(!player || !scene) return;
-
-let obj;
-
-if(tool==="block")
-obj=BABYLON.MeshBuilder.CreateBox("b",{size:1},scene);
-
-if(tool==="sphere")
-obj=BABYLON.MeshBuilder.CreateSphere("s",{diameter:1},scene);
-
-if(tool==="box")
-obj=BABYLON.MeshBuilder.CreateBox("r",{width:2,height:1,depth:1},scene);
-
-if(obj){
-obj.position=player.position.clone();
-obj.position.y=0.5;
-}
-
-});

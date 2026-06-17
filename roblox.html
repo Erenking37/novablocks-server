@@ -1,61 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovaBlocks v3.5.2</title>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+<style>
+html,body{
+margin:0;
+width:100%;
+height:100%;
+overflow:hidden;
+}
+
+#canvas{
+width:100vw;
+height:100vh;
+display:block;
+touch-action:none;
+}
+
+/* JOYSTICK */
+#joyBase{
+position:absolute;
+bottom:40px;
+left:40px;
+width:130px;
+height:130px;
+background:rgba(0,0,0,0.2);
+border-radius:50%;
+}
+
+#joyStick{
+position:absolute;
+width:50px;
+height:50px;
+background:white;
+border-radius:50%;
+top:40px;
+left:40px;
+}
+</style>
+</head>
+
+<body>
+
+<canvas id="canvas"></canvas>
+
+<div id="joyBase">
+  <div id="joyStick"></div>
+</div>
+
 <script>
 
-/* ===== STATE ===== */
-let currentUser="";
-let editMode=false;
-let gameStarted=false;
+const canvas = document.getElementById("canvas");
+const engine = new BABYLON.Engine(canvas,true);
+const scene = new BABYLON.Scene(engine);
 
-/* ===== LOGIN FIX ===== */
-function register(){
+/* LIGHT */
+new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0,1,0), scene);
 
-const u=document.getElementById("u").value.trim();
-const p=document.getElementById("p").value.trim();
+/* GROUND */
+BABYLON.MeshBuilder.CreateGround("g",{width:50,height:50},scene);
 
-if(!u||!p) return alert("Boş bırakma");
+/* PLAYER */
+const player = BABYLON.MeshBuilder.CreateBox("p",{size:1},scene);
+player.position.y = 1;
 
-localStorage.setItem("nb_"+u,p);
-localStorage.setItem("nb_lastUser",u);
+/* CAMERA (FPS STYLE) */
+const camera = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0,2,0), scene);
 
-autoLogin(u);
+/* LOOK CONTROL */
+let rotY = 0;
+let lastX = 0;
+
+/* JOYSTICK */
+const base = document.getElementById("joyBase");
+const stick = document.getElementById("joyStick");
+
+let dx = 0;
+let dz = 0;
+let active = false;
+
+/* LOOK (SAĞ-SOL) */
+canvas.addEventListener("touchstart",(e)=>{
+lastX = e.touches[0].clientX;
+});
+
+canvas.addEventListener("touchmove",(e)=>{
+
+let t = e.touches[0];
+rotY -= (t.clientX - lastX) * 0.002;
+lastX = t.clientX;
+
+camera.rotation.y = rotY;
+
+});
+
+/* JOYSTICK */
+base.addEventListener("touchstart",()=>active=true);
+
+base.addEventListener("touchend",()=>{
+active=false;
+dx=0;
+dz=0;
+stick.style.left="40px";
+stick.style.top="40px";
+});
+
+base.addEventListener("touchmove",(e)=>{
+
+if(!active) return;
+
+let t = e.touches[0];
+let r = base.getBoundingClientRect();
+
+let x = t.clientX - r.left - 65;
+let y = t.clientY - r.top - 65;
+
+let len = Math.sqrt(x*x+y*y);
+if(len>40){
+x=x/len*40;
+y=y/len*40;
 }
 
-function login(){
+stick.style.left = (40+x)+"px";
+stick.style.top = (40+y)+"px";
 
-const u=document.getElementById("u").value.trim();
-const p=document.getElementById("p").value.trim();
+dx = x/40;
+dz = -y/40;
 
-const saved=localStorage.getItem("nb_"+u);
+});
 
-if(saved && saved===p){
-localStorage.setItem("nb_lastUser",u);
-autoLogin(u);
-}else{
-alert("Hatalı giriş");
-}
-}
+/* LOOP */
+engine.runRenderLoop(()=>{
 
-/* AUTO LOGIN SAFE */
-function autoLogin(u){
+/* movement relative to camera */
+let forwardX = Math.sin(rotY);
+let forwardZ = Math.cos(rotY);
 
-currentUser=u;
+let rightX = Math.cos(rotY);
+let rightZ = -Math.sin(rotY);
 
-document.getElementById("login").style.display="none";
-document.getElementById("menu").style.display="flex";
+player.position.x += (forwardX * dz + rightX * dx) * 0.15;
+player.position.z += (forwardZ * dz + rightZ * dx) * 0.15;
 
-document.getElementById("helloText").innerText="Merhaba "+u;
+/* camera follow */
+camera.position.x = player.position.x;
+camera.position.y = player.position.y + 1;
+camera.position.z = player.position.z - 5;
 
-loadWorlds();
-}
+scene.render();
 
-/* AUTO LOAD */
-window.onload=()=>{
+});
 
-const last=localStorage.getItem("nb_lastUser");
-
-if(last && localStorage.getItem("nb_"+last)){
-autoLogin(last);
-}
-
-};
+window.addEventListener("resize",()=>engine.resize());
 
 </script>
+
+</body>
+</html>
