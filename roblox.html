@@ -1,0 +1,61 @@
+<script>
+
+/* ===== STATE ===== */
+let currentUser="";
+let editMode=false;
+let gameStarted=false;
+
+/* ===== LOGIN FIX ===== */
+function register(){
+
+const u=document.getElementById("u").value.trim();
+const p=document.getElementById("p").value.trim();
+
+if(!u||!p) return alert("Boş bırakma");
+
+localStorage.setItem("nb_"+u,p);
+localStorage.setItem("nb_lastUser",u);
+
+autoLogin(u);
+}
+
+function login(){
+
+const u=document.getElementById("u").value.trim();
+const p=document.getElementById("p").value.trim();
+
+const saved=localStorage.getItem("nb_"+u);
+
+if(saved && saved===p){
+localStorage.setItem("nb_lastUser",u);
+autoLogin(u);
+}else{
+alert("Hatalı giriş");
+}
+}
+
+/* AUTO LOGIN SAFE */
+function autoLogin(u){
+
+currentUser=u;
+
+document.getElementById("login").style.display="none";
+document.getElementById("menu").style.display="flex";
+
+document.getElementById("helloText").innerText="Merhaba "+u;
+
+loadWorlds();
+}
+
+/* AUTO LOAD */
+window.onload=()=>{
+
+const last=localStorage.getItem("nb_lastUser");
+
+if(last && localStorage.getItem("nb_"+last)){
+autoLogin(last);
+}
+
+};
+
+</script>
