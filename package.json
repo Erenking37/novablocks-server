@@ -1,12 +1,12 @@
 {
-  "name": "novablocks",
-  "version": "3.5.0",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "socket.io": "^4.7.2"
-  }
+"name":"novablocks",
+"version":"3.7.0",
+"main":"server.js",
+"scripts":{
+"start":"node server.js"
+},
+"dependencies":{
+"express":"^4.18.2",
+"socket.io":"^4.7.2"
+}
 }

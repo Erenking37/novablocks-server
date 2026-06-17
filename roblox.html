@@ -2,10 +2,12 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NovaBlocks v3.5.2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+<title>NovaBlocks v3.7</title>
 
 <script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="/socket.io/socket.io.js"></script>
 
 <style>
 html,body{
@@ -13,16 +15,20 @@ margin:0;
 width:100%;
 height:100%;
 overflow:hidden;
+background:#87CEEB;
 }
 
 #canvas{
+position:fixed;
+top:0;
+left:0;
 width:100vw;
 height:100vh;
-display:block;
 touch-action:none;
+display:block;
 }
 
-/* JOYSTICK */
+/* JOYSTICK CORE */
 #joyBase{
 position:absolute;
 bottom:40px;
@@ -42,6 +48,30 @@ border-radius:50%;
 top:40px;
 left:40px;
 }
+
+/* CHAT CORE */
+#chat{
+position:absolute;
+top:10px;
+left:10px;
+width:200px;
+height:150px;
+overflow:auto;
+background:rgba(0,0,0,0.4);
+color:white;
+font-size:12px;
+padding:5px;
+}
+
+#chatBox{
+position:absolute;
+bottom:10px;
+left:10px;
+display:flex;
+gap:5px;
+}
+
+#input{width:140px;}
 </style>
 </head>
 
@@ -49,42 +79,53 @@ left:40px;
 
 <canvas id="canvas"></canvas>
 
+<div id="chat"></div>
+
+<div id="chatBox">
+<input id="input" placeholder="chat...">
+<button id="send">Send</button>
+</div>
+
 <div id="joyBase">
   <div id="joyStick"></div>
 </div>
 
 <script>
 
+/* =========================
+   CORE INIT (RENDER SAFE)
+========================= */
+
+const socket = io();
+socket.emit("join","Player_"+Math.floor(Math.random()*999));
+
 const canvas = document.getElementById("canvas");
 const engine = new BABYLON.Engine(canvas,true);
 const scene = new BABYLON.Scene(engine);
 
+scene.clearColor = new BABYLON.Color4(0.53,0.81,0.92,1);
+
 /* LIGHT */
 new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0,1,0), scene);
 
-/* GROUND */
+/* WORLD */
 BABYLON.MeshBuilder.CreateGround("g",{width:50,height:50},scene);
 
-/* PLAYER */
+/* PLAYER CORE */
 const player = BABYLON.MeshBuilder.CreateBox("p",{size:1},scene);
-player.position.y = 1;
+player.position.y = 2;
 
-/* CAMERA (FPS STYLE) */
+/* CAMERA CORE */
 const camera = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0,2,0), scene);
+camera.minZ = 0.1;
 
-/* LOOK CONTROL */
+/* =========================
+   ADD-ON: LOOK SYSTEM
+========================= */
+
 let rotY = 0;
 let lastX = 0;
 
-/* JOYSTICK */
-const base = document.getElementById("joyBase");
-const stick = document.getElementById("joyStick");
-
-let dx = 0;
-let dz = 0;
-let active = false;
-
-/* LOOK (SAĞ-SOL) */
 canvas.addEventListener("touchstart",(e)=>{
 lastX = e.touches[0].clientX;
 });
@@ -99,13 +140,20 @@ camera.rotation.y = rotY;
 
 });
 
-/* JOYSTICK */
+/* =========================
+   ADD-ON: JOYSTICK
+========================= */
+
+const base = document.getElementById("joyBase");
+const stick = document.getElementById("joyStick");
+
+let dx=0,dz=0,active=false;
+
 base.addEventListener("touchstart",()=>active=true);
 
 base.addEventListener("touchend",()=>{
 active=false;
-dx=0;
-dz=0;
+dx=0;dz=0;
 stick.style.left="40px";
 stick.style.top="40px";
 });
@@ -121,23 +169,83 @@ let x = t.clientX - r.left - 65;
 let y = t.clientY - r.top - 65;
 
 let len = Math.sqrt(x*x+y*y);
-if(len>40){
-x=x/len*40;
-y=y/len*40;
-}
+if(len>40){x=x/len*40;y=y/len*40;}
 
-stick.style.left = (40+x)+"px";
-stick.style.top = (40+y)+"px";
+stick.style.left=(40+x)+"px";
+stick.style.top=(40+y)+"px";
 
 dx = x/40;
 dz = -y/40;
 
 });
 
-/* LOOP */
+/* =========================
+   ADD-ON: MULTIPLAYER
+========================= */
+
+let others = {};
+
+socket.on("init",(data)=>{
+
+for(let id in data){
+if(id === socket.id) continue;
+
+let b = BABYLON.MeshBuilder.CreateBox(id,{size:1},scene);
+others[id] = b;
+}
+
+});
+
+socket.on("update",(d)=>{
+
+if(others[d.id]){
+others[d.id].position.x = d.data.x;
+others[d.id].position.y = d.data.y;
+others[d.id].position.z = d.data.z;
+}
+
+});
+
+/* =========================
+   ADD-ON: CHAT
+========================= */
+
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
+const send = document.getElementById("send");
+
+send.onclick = ()=>{
+if(input.value.trim()!==""){
+socket.emit("chat",input.value);
+input.value="";
+}
+};
+
+socket.on("chat",(d)=>{
+let div=document.createElement("div");
+div.innerText=d.id+": "+d.msg;
+chat.appendChild(div);
+});
+
+/* =========================
+   ADD-ON: BLOCK PLACE
+========================= */
+
+window.addEventListener("click",()=>{
+
+let b = BABYLON.MeshBuilder.CreateBox("b",{size:1},scene);
+b.position.x = player.position.x;
+b.position.y = player.position.y - 1;
+b.position.z = player.position.z;
+
+});
+
+/* =========================
+   CORE LOOP (RENDER SAFE)
+========================= */
+
 engine.runRenderLoop(()=>{
 
-/* movement relative to camera */
 let forwardX = Math.sin(rotY);
 let forwardZ = Math.cos(rotY);
 
@@ -147,10 +255,9 @@ let rightZ = -Math.sin(rotY);
 player.position.x += (forwardX * dz + rightX * dx) * 0.15;
 player.position.z += (forwardZ * dz + rightZ * dx) * 0.15;
 
-/* camera follow */
 camera.position.x = player.position.x;
 camera.position.y = player.position.y + 1;
-camera.position.z = player.position.z - 5;
+camera.position.z = player.position.z;
 
 scene.render();
 
