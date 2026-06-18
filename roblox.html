@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 
-<title>NovaBlocks v3.7</title>
+<title>NovaBlocks v3.8</title>
 
 <script src="https://cdn.babylonjs.com/babylon.js"></script>
 <script src="/socket.io/socket.io.js"></script>
@@ -28,7 +28,7 @@ touch-action:none;
 display:block;
 }
 
-/* JOYSTICK CORE */
+/* JOYSTICK */
 #joyBase{
 position:absolute;
 bottom:40px;
@@ -49,7 +49,7 @@ top:40px;
 left:40px;
 }
 
-/* CHAT CORE */
+/* CHAT */
 #chat{
 position:absolute;
 top:10px;
@@ -72,10 +72,53 @@ gap:5px;
 }
 
 #input{width:140px;}
+
+/* SPLASH */
+#splash{
+position:fixed;
+inset:0;
+background:#0d1b3d;
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+z-index:99999;
+animation:fadeOut 1s ease forwards;
+animation-delay:3.5s;
+}
+
+#madeby{
+color:white;
+font-size:24px;
+margin-bottom:15px;
+}
+
+#logo{
+width:220px;
+max-width:70vw;
+animation:logoAnim 3s forwards;
+}
+
+@keyframes logoAnim{
+0%{opacity:0;transform:scale(0.8);}
+30%{opacity:1;transform:scale(1);}
+70%{opacity:1;}
+100%{opacity:0;transform:scale(1.05);}
+}
+
+@keyframes fadeOut{
+to{opacity:0;visibility:hidden;}
+}
 </style>
 </head>
 
 <body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div id="madeby">Made by:</div>
+  <img src="buildcraft.png" id="logo">
+</div>
 
 <canvas id="canvas"></canvas>
 
@@ -93,7 +136,7 @@ gap:5px;
 <script>
 
 /* =========================
-   CORE INIT (RENDER SAFE)
+   INIT
 ========================= */
 
 const socket = io();
@@ -103,26 +146,26 @@ const canvas = document.getElementById("canvas");
 const engine = new BABYLON.Engine(canvas,true);
 const scene = new BABYLON.Scene(engine);
 
-scene.clearColor = new BABYLON.Color4(0.53,0.81,0.92,1);
-
 /* LIGHT */
 new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0,1,0), scene);
 
 /* WORLD */
 BABYLON.MeshBuilder.CreateGround("g",{width:50,height:50},scene);
 
-/* PLAYER CORE */
+/* PLAYER (CUBE) */
 const player = BABYLON.MeshBuilder.CreateBox("p",{size:1},scene);
 player.position.y = 2;
 
-/* CAMERA CORE */
-const camera = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0,2,0), scene);
+const mat = new BABYLON.StandardMaterial("mat",scene);
+mat.diffuseColor = new BABYLON.Color3(0.2,0.6,1);
+player.material = mat;
+
+/* CAMERA (FPS) */
+const camera = new BABYLON.FreeCamera("cam", new BABYLON.Vector3(0,0,0), scene);
 camera.minZ = 0.1;
+camera.attachControl(canvas,true);
 
-/* =========================
-   ADD-ON: LOOK SYSTEM
-========================= */
-
+/* LOOK */
 let rotY = 0;
 let lastX = 0;
 
@@ -131,17 +174,13 @@ lastX = e.touches[0].clientX;
 });
 
 canvas.addEventListener("touchmove",(e)=>{
-
 let t = e.touches[0];
 rotY -= (t.clientX - lastX) * 0.002;
 lastX = t.clientX;
-
-camera.rotation.y = rotY;
-
 });
 
 /* =========================
-   ADD-ON: JOYSTICK
+   JOYSTICK
 ========================= */
 
 const base = document.getElementById("joyBase");
@@ -159,7 +198,6 @@ stick.style.top="40px";
 });
 
 base.addEventListener("touchmove",(e)=>{
-
 if(!active) return;
 
 let t = e.touches[0];
@@ -176,72 +214,10 @@ stick.style.top=(40+y)+"px";
 
 dx = x/40;
 dz = -y/40;
-
 });
 
 /* =========================
-   ADD-ON: MULTIPLAYER
-========================= */
-
-let others = {};
-
-socket.on("init",(data)=>{
-
-for(let id in data){
-if(id === socket.id) continue;
-
-let b = BABYLON.MeshBuilder.CreateBox(id,{size:1},scene);
-others[id] = b;
-}
-
-});
-
-socket.on("update",(d)=>{
-
-if(others[d.id]){
-others[d.id].position.x = d.data.x;
-others[d.id].position.y = d.data.y;
-others[d.id].position.z = d.data.z;
-}
-
-});
-
-/* =========================
-   ADD-ON: CHAT
-========================= */
-
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
-const send = document.getElementById("send");
-
-send.onclick = ()=>{
-if(input.value.trim()!==""){
-socket.emit("chat",input.value);
-input.value="";
-}
-};
-
-socket.on("chat",(d)=>{
-let div=document.createElement("div");
-div.innerText=d.id+": "+d.msg;
-chat.appendChild(div);
-});
-
-/* =========================
-   ADD-ON: BLOCK PLACE
-========================= */
-
-window.addEventListener("click",()=>{
-
-let b = BABYLON.MeshBuilder.CreateBox("b",{size:1},scene);
-b.position.x = player.position.x;
-b.position.y = player.position.y - 1;
-b.position.z = player.position.z;
-
-});
-
-/* =========================
-   CORE LOOP (RENDER SAFE)
+   LOOP
 ========================= */
 
 engine.runRenderLoop(()=>{
@@ -252,18 +228,24 @@ let forwardZ = Math.cos(rotY);
 let rightX = Math.cos(rotY);
 let rightZ = -Math.sin(rotY);
 
+/* MOVE */
 player.position.x += (forwardX * dz + rightX * dx) * 0.15;
 player.position.z += (forwardZ * dz + rightZ * dx) * 0.15;
 
+/* CAMERA = EYES */
 camera.position.x = player.position.x;
-camera.position.y = player.position.y + 1;
+camera.position.y = player.position.y + 0.5;
 camera.position.z = player.position.z;
 
 scene.render();
-
 });
 
 window.addEventListener("resize",()=>engine.resize());
+
+/* SPLASH REMOVE */
+setTimeout(()=>{
+document.getElementById("splash").remove();
+},4000);
 
 </script>
 
